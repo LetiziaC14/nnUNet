@@ -16,7 +16,9 @@ def load_nii(p):
 
 
 def save_like(ref_img, data, out_path, dtype=np.uint8):
-    # keep affine/header from ref image
+    """
+    Save 'data' as NIfTI, reusing affine & header from 'ref_img'.
+    """
     nii = nib.Nifti1Image(data.astype(dtype), ref_img.affine, ref_img.header)
     nib.save(nii, out_path)
 
@@ -34,6 +36,20 @@ def bbox_from_mask(mask):
 def ensure_dirs(base):
     maybe_mkdir_p(join(base, "imagesTr"))
     maybe_mkdir_p(join(base, "labelsTr"))
+    maybe_mkdir_p(join(base, "imagesTs"))  # needed for the 100 held-out test cases
+
+
+def _split_cases():
+    
+    cases = subfiles(join(SRC_BASE, "labelsTr"), suffix=".nii.gz", join=False)
+    cases.sort()
+    if len(cases) < 489:
+        raise RuntimeError(
+            f"Expected at least 489 label files in {join(SRC_BASE, 'labelsTr')}, got {len(cases)}."
+        )
+    train_cases = cases[:389]
+    test_cases = cases[389:489]
+    return train_cases, test_cases
 
 
 def derive_221_kidney_coarse():
@@ -42,8 +58,10 @@ def derive_221_kidney_coarse():
     dst_base = join(nnUNet_raw, f"Dataset{dst_id:03d}_{name}")
     ensure_dirs(dst_base)
 
-    cases = subfiles(join(SRC_BASE, "labelsTr"), suffix=".nii.gz", join=False)
-    for c in cases:
+    train_cases, test_cases = _split_cases()
+
+    # --- training set: copy image and write binary kidney label ---
+    for c in train_cases:
         case = c[:-7]  # strip ".nii.gz"
         img = load_nii(join(SRC_BASE, "imagesTr", case + "_0000.nii.gz"))
         lab = load_nii(join(SRC_BASE, "labelsTr", case + ".nii.gz"))
@@ -56,11 +74,17 @@ def derive_221_kidney_coarse():
                  join(dst_base, "imagesTr", case + "_0000.nii.gz"))
         save_like(lab, kidney_mask, join(dst_base, "labelsTr", case + ".nii.gz"))
 
+    # --- test set: images only to imagesTs ---
+    for c in test_cases:
+        case = c[:-7]
+        copyfile(join(SRC_BASE, "imagesTr", case + "_0000.nii.gz"),
+                 join(dst_base, "imagesTs", case + "_0000.nii.gz"))
+
     generate_dataset_json(
         dst_base, {0: "CT"},
         labels={"background": 0, "kidney": 1},
         file_ending=".nii.gz",
-        num_training_cases=489,
+        num_training_cases=len(train_cases),  # 389
         dataset_name=name, reference="derived from KiTS2023",
         release="1.0"
     )
@@ -77,18 +101,24 @@ def derive_222_kidney_fine_and_223_masses():
     ensure_dirs(base_fine)
     ensure_dirs(base_mass)
 
-    cases = subfiles(join(SRC_BASE, "labelsTr"), suffix=".nii.gz", join=False)
-    for c in cases:
+    train_cases, test_cases = _split_cases()
+
+    # -----------------------
+    # Training split (389)
+    # -----------------------
+    for c in train_cases:
         case = c[:-7]
         img = load_nii(join(SRC_BASE, "imagesTr", case + "_0000.nii.gz"))
         lab = load_nii(join(SRC_BASE, "labelsTr", case + ".nii.gz"))
-        I = img.get_fdata()
+
+        # keep image dtype consistent
+        src_dtype = img.get_data_dtype()
+        I = img.get_fdata(dtype=src_dtype)
         L = lab.get_fdata().astype(np.int16)
 
         kidney_mask = np.isin(L, [1, 2, 3]).astype(np.uint8)
         sl = bbox_from_mask(kidney_mask)
         if sl is None:
-            # no kidney? skip or copy whole volume
             sl = (slice(0, I.shape[0]), slice(0, I.shape[1]), slice(0, I.shape[2]))
 
         # crop image & labels to ROI
@@ -97,20 +127,45 @@ def derive_222_kidney_fine_and_223_masses():
         kidney_roi = kidney_mask[sl]
 
         # --- Dataset222: KidneyFine (binary) ---
-        save_like(img, I_roi, join(base_fine, "imagesTr", case + "_0000.nii.gz"), dtype=I.dtype)
+        save_like(img, I_roi, join(base_fine, "imagesTr", case + "_0000.nii.gz"), dtype=src_dtype)
         save_like(lab, kidney_roi, join(base_fine, "labelsTr", case + ".nii.gz"), dtype=np.uint8)
 
         # --- Dataset223: Masses/Tumor (REGIONS style) ---
         # masses = union(2,3); tumor = 2; kidney optional context
-        save_like(img, I_roi, join(base_mass, "imagesTr", case + "_0000.nii.gz"), dtype=I.dtype)
+        save_like(img, I_roi, join(base_mass, "imagesTr", case + "_0000.nii.gz"), dtype=src_dtype)
         save_like(lab, L_roi, join(base_mass, "labelsTr", case + ".nii.gz"), dtype=np.int16)
+
+    # -----------------------
+    # Test split (100) → imagesTs only
+    # -----------------------
+    for c in test_cases:
+        case = c[:-7]
+        img = load_nii(join(SRC_BASE, "imagesTr", case + "_0000.nii.gz"))
+        lab = load_nii(join(SRC_BASE, "labelsTr", case + ".nii.gz"))
+
+        src_dtype = img.get_data_dtype()
+        I = img.get_fdata(dtype=src_dtype)
+        L = lab.get_fdata().astype(np.int16)
+
+        kidney_mask = np.isin(L, [1, 2, 3]).astype(np.uint8)
+        sl = bbox_from_mask(kidney_mask)
+        if sl is None:
+            sl = (slice(0, I.shape[0]), slice(0, I.shape[1]), slice(0, I.shape[2]))
+
+        I_roi = I[sl]
+
+        # --- Dataset222: KidneyFine (binary) ---
+        save_like(img, I_roi, join(base_fine, "imagesTs", case + "_0000.nii.gz"), dtype=src_dtype)
+
+        # --- Dataset223: Masses/Tumor (REGIONS style) ---
+        save_like(img, I_roi, join(base_mass, "imagesTs", case + "_0000.nii.gz"), dtype=src_dtype)
 
     # KidneyFine (binary)
     generate_dataset_json(
         base_fine, {0: "CT"},
         labels={"background": 0, "kidney": 1},
         file_ending=".nii.gz",
-        num_training_cases=489,
+        num_training_cases=len(train_cases),  # 389
         dataset_name=name_fine, reference="derived from KiTS2023",
         release="1.0"
     )
@@ -126,7 +181,7 @@ def derive_222_kidney_fine_and_223_masses():
         },
         regions_class_order=("kidney", "masses", "tumor"),
         file_ending=".nii.gz",
-        num_training_cases=len(cases),
+        num_training_cases=len(train_cases),  # 389
         dataset_name=name_mass, reference="derived from KiTS2023",
         release="1.0"
     )
