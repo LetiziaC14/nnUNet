@@ -41,10 +41,11 @@ Remove tumors/cysts predicted outside kidneys and small isolated components:
      pip install -e .
      
 3) **Import dataset kits2023** in the current directory using the python converter file : nnuntev2 -> dataset_conversion -> Dataset220_KiTS2023.py
+4) **Update parameters in nnUNet**: target spacing, postprocessing (mind nnUNet is now a submodule)
    
-4) **Run derive_stage_datasets.py** to create the new datasets for the different steps
+5) **Run derive_stage_datasets.py** to create the new datasets for the different steps
    
-5) **Plan & preprocess** each stage for the different datasets :
+6) **Plan & preprocess** each stage for the different datasets :
 - nnUNetv2_plan_and_preprocess -d 221 -c 3d_lowres   --verify_dataset_integrity
 - nnUNetv2_plan_and_preprocess -d 222 -c 3d_fullres --verify_dataset_integrity
 - nnUNetv2_plan_and_preprocess -d 223 -c 3d_fullres --verify_dataset_integrity
