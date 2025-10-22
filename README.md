@@ -57,6 +57,9 @@ Remove tumors/cysts predicted outside kidneys and small isolated components:
    
 7) **Inference**:
    - Coarse prediction on full FOV
+     nnUNetv2_predict -d 221 -c 3d_lowres \
+    -i <path_to_fullFOV_images> \
+    -o <output_folder_for_kidney_masks>
    - Build the ROI from the coarse mask & crop the image (using crop_from_prediction.py)
    - Run fine models on the ROI
    - Paste ROI predictions back to the full image space (using paste_back.py)
