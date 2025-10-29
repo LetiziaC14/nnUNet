@@ -31,8 +31,7 @@ Remove tumors/cysts predicted outside kidneys and small isolated components:
 -	<200 voxels for tumor
 -	<50 voxels for cyst
 
-## How to run nnU-Net on KiTS23 dataset
-
+## How to train nnU-Net on KiTS23 dataset
 1) **Download data kits23** following the intructions in the repo https://github.com/neheller/kits23.git
    
 2) **Installation**:
@@ -49,21 +48,22 @@ Remove tumors/cysts predicted outside kidneys and small isolated components:
 - nnUNetv2_plan_and_preprocess -d 221 -c 3d_lowres   --verify_dataset_integrity
 - nnUNetv2_plan_and_preprocess -d 222 -c 3d_fullres --verify_dataset_integrity
 - nnUNetv2_plan_and_preprocess -d 223 -c 3d_fullres --verify_dataset_integrity
-   
+221,222,223 are the indexes of the different datasets
+     
 6) **Train** per stage:
 -  nnUNetv2_train 221 3d_lowres 0 -device cuda   # or -device cpu
 -  nnUNetv2_train 222 3d_fullres 0 -device cuda
 -  nnUNetv2_train 223 3d_fullres 0 -device cuda
    
-7) **Inference**:
-   - Coarse prediction on full FOV
-     nnUNetv2_predict -d 221 -c 3d_lowres \
-    -i <path_to_fullFOV_images> \
-    -o <output_folder_for_kidney_masks>
-   - Build the ROI from the coarse mask & crop the image (using crop_from_prediction.py)
-   - Run fine models on the ROI
-   - Paste ROI predictions back to the full image space (using paste_back.py)
-   - Post-processing
+## How to make inference on KiTS23 test dataset**:
+- Coarse prediction on full FOV
+  nnUNetv2_predict -d 221 -c 3d_lowres \
+ -i <path_to_fullFOV_images> \
+ -o <output_folder_for_kidney_masks>
+- Build the ROI from the coarse mask & crop the image (using crop_from_prediction.py)
+- Run fine models on the ROI
+- Paste ROI predictions back to the full image space and Post-processing (using paste_back_and_post_min.py)
+
 
 
 
