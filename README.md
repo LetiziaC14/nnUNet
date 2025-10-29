@@ -55,7 +55,7 @@ Remove tumors/cysts predicted outside kidneys and small isolated components:
 -  nnUNetv2_train 222 3d_fullres 0 -device cuda
 -  nnUNetv2_train 223 3d_fullres 0 -device cuda
    
-## How to make inference on KiTS23 test dataset**:
+## How to make inference on KiTS23 test dataset:
 - Coarse prediction on full FOV
   nnUNetv2_predict -d 221 -c 3d_lowres \
  -i <path_to_fullFOV_images> \
