@@ -98,12 +98,7 @@ Remove tumors/cysts predicted outside kidneys and small isolated components:
   -o /path/infer_outputs/pred_223 \
   --save_probabilities
 - Paste ROI predictions back to the full image space and Post-processing (using paste_back_and_post_min.py):
-  python3 paste_back_and_post_min.py \
-  --pred223   "$HOME/Documents/nnUNet_data/nnUNet_inference/pred_223" \
-  --meta      "$HOME/Documents/nnUNet_data/nnUNet_inference/roi_meta" \
-  --images221 "$HOME/Documents/nnUNet_data/nnUNet_raw/Dataset221_KidneyCoarse/imagesTs" \
-  --out       "$HOME/Documents/nnUNet_data/nnUNet_inference/final_fullsize" \
-  --minvox-kidney 20000 --minvox-tumor 200 --minvox-cyst 50
+python3 paste_back_and_post_min.py --pred223 "$HOME/Documents/infer_outputs/pred_223 " --meta "$HOME/Documents/roi_stage/roi_meta/NEWCASE.json" --images221 "$HOME/Documents/new_inference_case/imagesTs" --out "$HOME/Documents/final_fullsize" --minvox-kidney 20000 --minvox-tumor 200 --minvox-cyst 50
 
 
 
