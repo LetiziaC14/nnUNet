@@ -64,6 +64,48 @@ Remove tumors/cysts predicted outside kidneys and small isolated components:
 - Run fine models on the ROI
 - Paste ROI predictions back to the full image space and Post-processing (using paste_back_and_post_min.py)
 
+## How to make inference on a new case:
+- Save the new CT volume as NEWCASE_0000.nii.gz
+- nnU-Net reads NEWCASE_0000.nii.gz and applies the same preprocessing that was learned for dataset 221, then runs the trained model (Preprocessing is done automatically):
+  nnUNetv2_predict \
+  -d 221 -c 3d_fullres \
+  -f 0 \
+  --chkpt checkpoint_best.pth \
+  -i /path/new_inference_case/imagesTs \
+  -o /path/infer_outputs/pred_221 \
+  --save_probabilities
+- Build the ROi and crop the image:
+  python crop_from_prediction.py \
+    --full-img      /path/new_inference_case/imagesTs/NEWCASE_0000.nii.gz \
+    --coarse-mask   /path/infer_outputs/pred_221/NEWCASE.nii.gz \
+    --out-222-img   /path/roi_stage/Dataset222_KidneyFine/imagesTs/NEWCASE_0000.nii.gz \
+    --out-223-img   /path/roi_stage/Dataset223_MassesTumor/imagesTs/NEWCASE_0000.nii.gz \
+    --meta-json     /path/roi_stage/roi_meta/NEWCASE.json
+- Kidney fine segmentation (222):
+  nnUNetv2_predict \
+  -d 222 -c 3d_fullres \
+  -f 0 \
+  --chkpt checkpoint_best.pth \
+  -i /path/roi_stage/Dataset222_KidneyFine/imagesTs \
+  -o /path/infer_outputs/pred_222 \
+  --save_probabilities
+- Mass/tumor segmentation (223):
+  nnUNetv2_predict \
+  -d 223 -c 3d_fullres \
+  -f 0 \
+  --chkpt checkpoint_best.pth \
+  -i /path/roi_stage/Dataset223_MassesTumor/imagesTs \
+  -o /path/infer_outputs/pred_223 \
+  --save_probabilities
+- Paste ROI predictions back to the full image space and Post-processing (using paste_back_and_post_min.py):
+  python3 paste_back_and_post_min.py \
+  --pred223   "$HOME/Documents/nnUNet_data/nnUNet_inference/pred_223" \
+  --meta      "$HOME/Documents/nnUNet_data/nnUNet_inference/roi_meta" \
+  --images221 "$HOME/Documents/nnUNet_data/nnUNet_raw/Dataset221_KidneyCoarse/imagesTs" \
+  --out       "$HOME/Documents/nnUNet_data/nnUNet_inference/final_fullsize" \
+  --minvox-kidney 20000 --minvox-tumor 200 --minvox-cyst 50
+
+
 
 
 
