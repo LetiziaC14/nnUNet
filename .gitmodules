@@ -1,3 +1,4 @@
 [submodule "nnUNet"]
     path = nnUNet
-    url  = https://github.com/MIC-DKFZ/nnUNet.git
+	url = https://github.com/LetiziaC14/nnUNet.git
+	branch = main
