@@ -1,0 +1,171 @@
+{
+    "shader_ref": {
+        "bone_shader": {
+            "blend_file": "bone.blend",
+            "blend_material": "bone_mat",
+            "color_override": null
+        },
+        "brain_shader": {
+            "blend_file": "brain.blend",
+            "blend_material": "brain_mat",
+            "color_override": null
+        },
+        "cartilage_shader": {
+            "blend_file": "cartilage.blend",
+            "blend_material": "cartilage_mat",
+            "color_override": null
+        },
+        "cyst_shader": {
+            "blend_file": "cyst.blend",
+            "blend_material": "cyst_mat",
+            "color_override": null
+        },
+        "cyst_2_shader": {
+            "blend_file": "cyst_2.blend",
+            "blend_material": "cyst_2_mat",
+            "color_override": null
+        },
+        "default_shader": {
+            "blend_file": "default.blend",
+            "blend_material": "default_mat",
+            "color_override": null
+        },
+        "fat_tissue_shader": {
+            "blend_file": "fat_tissue.blend",
+            "blend_material": "fat_tissue_mat",
+            "color_override": null
+        },
+        "gallbladder_shader": {
+            "blend_file": "gallbladder.blend",
+            "blend_material": "gallbladder_mat",
+            "color_override": null
+        },
+        "guts_shader": {
+            "blend_file": "guts.blend",
+            "blend_material": "guts_mat",
+            "color_override": null
+        },
+        "lung_shader": {
+            "blend_file": "lung.blend",
+            "blend_material": "lung_mat",
+            "color_override": null
+        },
+        "lymph_node_shader": {
+            "blend_file": "lymph_node.blend",
+            "blend_material": "lymph_node_mat",
+            "color_override": null
+        },
+        "muscle_shader": {
+            "blend_file": "muscle.blend",
+            "blend_material": "muscle_mat",
+            "color_override": null
+        },
+        "nerve_shader": {
+            "blend_file": "nerve.blend",
+            "blend_material": "nerve_mat",
+            "color_override": null
+        },
+        "soft_organ_shader": {
+            "blend_file": "organ_1.blend",
+            "blend_material": "organ_mat",
+            "color_override": null
+        },
+        "hard_organ_shader": {
+            "blend_file": "organ_2.blend",
+            "blend_material": "organ_2_mat",
+            "color_override": null
+        },
+        "skin_shader": {
+            "blend_file": "skin.blend",
+            "blend_material": "skin_mat",
+            "color_override": null
+        },
+        "spleen_shader": {
+            "blend_file": "spleen.blend",
+            "blend_material": "spleen_mat",
+            "color_override": null
+        },
+        "artery_shader": {
+            "blend_file": "tubes.blend",
+            "blend_material": "tubes_mat",
+            "color_override": "#954230"
+        },
+        "vein_shader": {
+            "blend_file": "tubes.blend",
+            "blend_material": "tubes_mat",
+            "color_override": "#867FE1"
+        },
+        "tube_stripes_shader": {
+            "blend_file": "tube_stripes.blend",
+            "blend_material": "tube_stripes_mat",
+            "color_override": null
+        },
+        "tumor_1_shader": {
+            "blend_file": "tumor_1.blend",
+            "blend_material": "tumor_1_mat",
+            "color_override": null
+        },
+        "tumor_2_shader": {
+            "blend_file": "tumor_2.blend",
+            "blend_material": "tumor_2_mat",
+            "color_override": null
+        },
+        "thyroid_gland_shader": {
+            "blend_file": "organ_2.blend",
+            "blend_material": "organ_2_mat",
+            "color_override": "#AAAA00"
+        },
+        "adrenal_gland_shader": {
+            "blend_file": "cyst_2.blend",
+            "blend_material": "cyst_2_mat",
+            "color_override": "#BAB873"
+        },
+        "kidney_shader": {
+            "blend_file": "organ_2.blend",
+            "blend_material": "organ_2_mat",
+            "color_override": "#8F4917"
+        },
+        "heart_shader": {
+            "blend_file": "heart.blend",
+            "blend_material": "heart_mat",
+            "color_override": "#8F4917"
+        },
+        "liver_shader": {
+            "blend_file": "organ_1.blend",
+            "blend_material": "organ_1_mat",
+            "color_override": "#CF2E00"
+        },
+        "pancreas_shader": {
+            "blend_file": "fat_tissue.blend",
+            "blend_material": "fat_tissue_mat",
+            "color_override": "#BC9FA5"
+        }
+    },
+    "biological_categories": {
+        "Brain": "brain_shader",
+        "Lung": "lung_shader",
+        "Spleen": "spleen_shader",
+        "Gallbladder": "gallbladder_shader",
+        "Heart": "heart_shader",
+        "Liver": "liver_shader",
+        "Pancreas": "pancreas_shader",
+        "Artery": "artery_shader",
+        "Vein": "vein_shader",
+        "Thyroid_gland": "thyroid_gland_shader",
+        "Kidney": "kidney_shader",
+        "Parenchima": "soft_organ_shader",
+        "Organ": "hard_organ_shader",
+        "Bone": "bone_shader",
+        "Cartilage": "cartilage_shader",
+        "Muscle": "muscle_shader",
+        "Nerve": "nerve_shader",
+        "Fat": "fat_tissue_shader",
+        "Skin": "skin_shader",
+        "Digestive": "guts_shader",
+        "LymphNode": "lymph_node_shader",
+        "Cyst": "cyst_shader",
+        "Tumor1": "tumor_1_shader",
+        "Tumor2": "tumor_2_shader",
+        "Other": "default_shader"
+    }
+}

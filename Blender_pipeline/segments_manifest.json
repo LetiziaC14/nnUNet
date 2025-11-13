@@ -1,0 +1,82 @@
+{
+    "Background": {
+        "id": 0,
+        "snomed_details": {
+            "category": null,
+            "type": null,
+            "type_modifier": null,
+            "region": null,
+            "type_code": null
+        },
+        "custom_parameters": {
+            "display_name": "Background",
+            "export_as_individual_mesh": null,
+            "biological_category": "Other",
+            "shader_ref": null,
+            "blend_file": null,
+            "blend_material": null,
+            "color_override": null,
+            "export": true
+        }
+    },
+    "Kidney": {
+        "id": 1,
+        "snomed_details": {
+            "category": null,
+            "type": null,
+            "type_modifier": null,
+            "region": null,
+            "type_code": null
+        },
+        "custom_parameters": {
+            "display_name": "Kidney",
+            "export_as_individual_mesh": null,
+            "biological_category": "Other",
+            "shader_ref": null,
+            "blend_file": null,
+            "blend_material": null,
+            "color_override": null,
+            "export": true
+        }
+    },
+    "Tumor": {
+        "id": 2,
+        "snomed_details": {
+            "category": null,
+            "type": null,
+            "type_modifier": null,
+            "region": null,
+            "type_code": null
+        },
+        "custom_parameters": {
+            "display_name": "Tumor",
+            "export_as_individual_mesh": null,
+            "biological_category": "Other",
+            "shader_ref": null,
+            "blend_file": null,
+            "blend_material": null,
+            "color_override": null,
+            "export": true
+        }
+    },
+    "Cyst": {
+        "id": 3,
+        "snomed_details": {
+            "category": null,
+            "type": null,
+            "type_modifier": null,
+            "region": null,
+            "type_code": null
+        },
+        "custom_parameters": {
+            "display_name": "Cyst",
+            "export_as_individual_mesh": null,
+            "biological_category": "Other",
+            "shader_ref": null,
+            "blend_file": null,
+            "blend_material": null,
+            "color_override": null,
+            "export": true
+        }
+    }
+}
