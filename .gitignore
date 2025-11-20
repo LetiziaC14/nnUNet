@@ -7,7 +7,7 @@ __pycache__/
 nnUNet_raw/
 nnUNet_preprocessed/
 nnUNet_results/
-
+ 
 # Blender & meshes
 Blender_pipeline/blender_out/
 Blender_pipeline/meshes_in/

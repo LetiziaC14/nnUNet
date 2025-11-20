@@ -59,6 +59,15 @@ python3 paste_back_and_post_min.py \
   --out       "$HOME/Documents/nnUNet_data/nnUNet_inference/final_fullsize" \
   --minvox-kidney 20000 --minvox-tumor 200 --minvox-cyst 50
 
+
+
+echo "Segmentator pipeline"
+cd Blender_pipeline   
+python segmentator_pipeline.py   
+
+echo "Starting Blender pipeline"
+python blender_pipeline.py  
+
 echo "All jobs finished at $(date)"
 
 #chmod +x run_all.sh

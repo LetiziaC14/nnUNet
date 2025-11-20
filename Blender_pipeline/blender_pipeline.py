@@ -148,6 +148,125 @@ def execute_blender_pipeline():
     print("\n--- Fase 11: Baking dei modificatori e deformatori ---")
     blender_ops.apply_all_modifiers(imported_meshes)
 
+    # --- 11a: Calcolo dei volumi delle mesh ---
+    print("\n--- Fase 11b: Calcolo dei volumi delle mesh ---")
+    volumes = blender_ops.compute_mesh_volumes(imported_meshes)
+    volumes_path = os.path.join(config.OUTPUT_DIR, "volumes.json")
+    utils.write_json(volumes, volumes_path)
+    print(f"  Volumi salvati in: {volumes_path}")
+
+    # --- 11 Applica i modificatori alle mesh (freeze history)
+    print("\n--- Fase 11: Baking dei modificatori e deformatori ---")
+    blender_ops.apply_all_modifiers(imported_meshes)
+
+    # --- 11b Conteggio Cisti ---
+    print("\n--- Fase 11b: Conteggio delle Cisti ---")
+    cyst_count, cyst_names = blender_ops.count_cysts_from_object(
+        source_obj_name="Cyst",
+        merge_distance=config.MERGE_DISTANCE
+    )
+    print(f"  Numero di cisti iniziali: {cyst_count}")
+
+    # --- 11c Rimozione Cisti Piccole e nuovo conteggio ---
+    print("\n--- Fase 11c: Rimozione cisti con meno di 5 facce ---")
+    pruned_count, pruned_names = blender_ops.prune_small_cysts(
+        base_name="Cyst",
+        min_faces=5
+    )
+    print(f"  Numero di cisti dopo pruning (<5 facce rimosse): {pruned_count}")
+
+    # Salva solo il conteggio finale / lista finale
+    cysts_info_path = os.path.join(config.OUTPUT_DIR, "cysts_info.json")
+    utils.write_json(
+        {
+            "initial_cyst_count": cyst_count,
+            "initial_cyst_objects": cyst_names,
+            "final_cyst_count": pruned_count,
+            "final_cyst_objects": pruned_names,
+            "min_faces_threshold": 5,
+        },
+        cysts_info_path
+    )
+    print(f"  Info cisti (prima e dopo pruning) salvate in: {cysts_info_path}")
+
+    # --- 11d Aggiorna imported_meshes con le cisti finali ---
+    scene = bpy.context.scene
+
+    # 1. Recupera gli oggetti Cyst / Cyst.xxx che sono sopravvissuti al pruning
+    final_cyst_objects = []
+    for name in pruned_names:
+        obj = scene.objects.get(name)
+        if obj and obj.type == 'MESH':
+            final_cyst_objects.append(obj)
+        else:
+            print(f"  WARNING: oggetto '{name}' non trovato o non è mesh (dopo pruning).")
+
+    cyst_root = scene.objects.get("Cyst")
+    if cyst_root and cyst_root.type == 'MESH':
+        final_cyst_objects.append(cyst_root)
+
+    # 3. Rimuovi qualsiasi vecchio oggetto Cyst / Cyst.xxx da imported_meshes
+    imported_meshes = [
+        obj for obj in imported_meshes
+        if not (obj.name == "Cyst" or obj.name.startswith("Cyst."))
+    ]
+    # 4. Aggiungi le cisti finali alla lista su cui si basano bake/link/export
+    imported_meshes.extend(final_cyst_objects)
+    print(f"  imported_meshes aggiornato, ora contiene {len(imported_meshes)} mesh.")
+    print("  Cisti finali incluse:", [obj.name for obj in final_cyst_objects])
+
+    # --- 11bb: Conteggio Tumori ---
+    print("\n--- Fase 11bb: Conteggio dei Tumori ---")
+    tumor_count, tumor_names = blender_ops.count_tumors_from_object(
+        source_obj_name="Tumor",
+        merge_distance=config.MERGE_DISTANCE
+    )
+    print(f"  Numero di tumori iniziali: {tumor_count}")
+
+    # --- 11cc Rimozione Tumori Piccoli e nuovo conteggio ---
+    print("\n--- Fase 11cc: Rimozione tumori con meno di 5 facce ---")
+    pruned_tumor_count, pruned_tumor_names = blender_ops.prune_small_tumors(
+        base_name="Tumor",
+        min_faces=5
+    )
+    print(f"  Numero di tumori dopo pruning: {pruned_tumor_count}")
+
+    tumors_info_path = os.path.join(config.OUTPUT_DIR, "tumors_info.json")
+    utils.write_json(
+        {
+            "initial_tumor_count": tumor_count,
+            "initial_tumor_objects": tumor_names,
+            "final_tumor_count": pruned_tumor_count,
+            "final_tumor_objects": pruned_tumor_names,
+            "min_faces_threshold": 5,
+        },
+        tumors_info_path
+    )
+    print(f"  Info tumori (prima e dopo pruning) salvate in: {tumors_info_path}")
+
+    # --- 11dd Aggiorna imported_meshes con i tumori finali ---
+    # (riusa la stessa 'scene' di sopra, non serve riassegnarla)
+    final_tumor_objects = []
+    for name in pruned_tumor_names:
+        obj = scene.objects.get(name)
+        if obj and obj.type == 'MESH':
+            final_tumor_objects.append(obj)
+        else:
+            print(f"  WARNING: oggetto tumore '{name}' non trovato o non è mesh (dopo pruning).")
+
+    tumor_root = scene.objects.get("Tumor")
+    if tumor_root and tumor_root.type == 'MESH':
+        final_tumor_objects.append(tumor_root)
+
+    imported_meshes = [
+        obj for obj in imported_meshes
+        if not (obj.name == "Tumor" or obj.name.startswith("Tumor."))
+    ]
+    imported_meshes.extend(final_tumor_objects)
+
+    print(f"  imported_meshes aggiornato con i tumori, ora contiene {len(imported_meshes)} mesh.")
+    print("  Tumori finali inclusi:", [obj.name for obj in final_tumor_objects])
+
     # --- 12 Baking delle Texture ---
     print("\n--- Fase 12: Baking delle Texture ---")
     blender_ops.bake_textures(
@@ -156,6 +275,7 @@ def execute_blender_pipeline():
         config.TEXTURE_SIZE,
         config.BLENDER_DEVICE,
     )
+
 
     # --- 13 Crea la mappa metalness per lo standard Adobe PBR
     print("\n--- Fase 13: Creazione Mappa di Metalness in standard PBR ---")

@@ -32,7 +32,8 @@ ROOT_NAME_BASE = f"{PROJECT_SESSION_ID}_Root"
 
 # Geometry & bake settings
 WORLD_SCALE_FACTOR = 0.001        # e.g., mm -> m
-MERGE_DISTANCE = 0.0005           # in scene units after scaling
+#MERGE_DISTANCE = 0.0005
+MERGE_DISTANCE = 0.001          # in scene units after scaling
 MAX_FACES_PER_MESH = 150_000
 TEXTURE_SIZE = 1024               # 1024/2048/4096
 BLENDER_DEVICE = "GPU"            # "GPU" or "CPU"

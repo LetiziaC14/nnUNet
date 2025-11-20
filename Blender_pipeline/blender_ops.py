@@ -5,7 +5,7 @@ import bpy
 import os
 import numpy as np
 import mathutils
-
+import bmesh
 # Import config module to access global project settings
 import config
 import utils
@@ -223,6 +223,25 @@ def apply_world_scale(mesh_objects, scale_factor):
     bpy.ops.object.select_all(action='DESELECT')
     bpy.context.view_layer.update()
 
+
+def _filter_valid_mesh_objects(mesh_objects):
+    """
+    Returns only still-existing mesh objects from the given list.
+    Skips any deleted StructRNA (ReferenceError) and non-mesh types.
+    """
+    valid = []
+    for obj in mesh_objects:
+        try:
+            _ = obj.name  # will raise ReferenceError if obj was removed
+        except ReferenceError:
+            print("  Skipping removed object still referenced in mesh list.")
+            continue
+        if obj.type != 'MESH':
+            continue
+        valid.append(obj)
+    return valid
+
+
 # --- Cleaning Functions ---
 
 def merge_vertices_by_distance(mesh_objects, distance):
@@ -277,7 +296,6 @@ def delete_small_features(mesh_objects, threshold):
 
 def decimate_mesh_objects(mesh_objects, max_faces_limit, segment_manifest):
     """Decimates mesh objects to reduce face count taking account of the export_as_individual_mesh in segmentMappings."""
-
     print(f"Performing 'Decimation' for mesh objects with limit: {max_faces_limit} / ({max_faces_limit*1000} on individual object) faces.")
     for obj in mesh_objects:
         decimate = False
@@ -839,7 +857,7 @@ def bake_channel(mesh_object, channel_type, textures_dir, texture_size, color_sp
 def bake_textures(imported_meshes, textures_dir, texture_size, blender_device):
     """Orchestrates baking of Color, Normal, and Roughness textures for all meshes."""
     created_bake_nodes = []
-
+    imported_meshes = _filter_valid_mesh_objects(imported_meshes)
     for obj in imported_meshes:
         if obj.type != 'MESH':
             continue # Skip non-mesh objects
@@ -966,7 +984,7 @@ def link_baked_textures(imported_meshes, textures_dir):
     # Lista per raccogliere i nodi temporanei creati da questa funzione
     # (es. Normal Map Node) che dovranno essere puliti alla fine.
     nodes_created_by_linking = [] 
-
+    imported_meshes = _filter_valid_mesh_objects(imported_meshes)
     for obj in imported_meshes:
         if not obj or not obj.data.materials:
             continue
@@ -1067,12 +1085,10 @@ def link_baked_textures(imported_meshes, textures_dir):
     return nodes_created_by_linking # Return any new nodes created by this function
 
 def create_base_metalness_map(mesh_objects, textures_dir, texture_size):
-    """
-    Creates a base Metalness map (metallic.png) for PBR Adobe workflow
-    from the green channel of the baked Roughness map.
-    The green channel of the roughness map is replicated across R, G, B channels.
-    """
     print("\n--- Phase: Creating Base Metalness Map (for PBR Adobe workflow) ---")
+
+    mesh_objects = _filter_valid_mesh_objects(mesh_objects)
+
     for obj in mesh_objects:
         obj_name = obj.name
         roughness_path = os.path.join(textures_dir, f"{obj_name}_roughness.png")
@@ -1126,15 +1142,13 @@ def create_base_metalness_map(mesh_objects, textures_dir, texture_size):
 
 def create_metallic_smoothness_map(mesh_objects, textures_dir, texture_size):
     """
-    Creates a combined MetallicSmoothness map for Unity (Universal Render Pipeline - URP)
-    from the baked Roughness map.
-    Unity URP MetallicSmoothness Map:
-    - R channel: Metalness (from G of original Roughness)
-    - G channel: Occlusion (set to 0.0 or from separate AO bake)
-    - B channel: Detail Mask (set to 0.0)
-    - A channel: Smoothness (1 - Roughness, from G of original Roughness)
+    Creates a combined MetallicSmoothness map for Unity (URP) from the baked Roughness map.
     """
     print("\n--- Phase: Creating MetallicSmoothness Map for Unity ---")
+
+    # Filter out deleted / non-mesh objects
+    mesh_objects = _filter_valid_mesh_objects(mesh_objects)
+
     for obj in mesh_objects:
         obj_name = obj.name
         roughness_path = os.path.join(textures_dir, f"{obj_name}_roughness.png")
@@ -1203,7 +1217,10 @@ def update_shader_nodes_for_unity_export(imported_meshes, textures_dir):
     Returns a list of all *new* nodes created by this function (MetallicSmoothness, Invert).
     """
     print("\n--- Phase: Updating Shader Nodes for Unity (Metallic/Smoothness) ---")
-    
+
+    imported_meshes = _filter_valid_mesh_objects(imported_meshes)
+
+
     # Lista per raccogliere i nodi temporanei creati da questa funzione
     nodes_created_by_unity_export_setup = []
 
@@ -1290,3 +1307,386 @@ def update_shader_nodes_for_unity_export(imported_meshes, textures_dir):
             
     bpy.context.view_layer.update()
     return nodes_created_by_unity_export_setup # Return new nodes for cleanup
+
+#Volume Calculation Functions
+def _calc_volume_world(obj, depsgraph=None):
+    """
+    Compute world-space volume of a mesh object using bmesh.calc_volume().
+    Returns 0.0 if the object is not a mesh.
+    """
+    if obj.type != 'MESH':
+        return 0.0
+
+    if depsgraph is None:
+        depsgraph = bpy.context.evaluated_depsgraph_get()
+
+    # Get evaluated object (modifiers applied)
+    eval_obj = obj.evaluated_get(depsgraph)
+    eval_mesh = eval_obj.to_mesh()
+
+    bm = bmesh.new()
+    bm.from_mesh(eval_mesh)
+
+    # Apply world transform so calc_volume works in world coordinates
+    bm.transform(eval_obj.matrix_world)
+
+    volume = bm.calc_volume()
+
+    bm.free()
+    eval_obj.to_mesh_clear()
+
+    return volume
+
+
+def compute_mesh_volumes(mesh_objects):
+    """
+    Compute volumes for the given mesh objects.
+
+    Uses scene unit settings:
+      - METRIC   -> cm³
+      - IMPERIAL -> in³
+      - NONE     -> Blender units³ (BU³)
+
+    Returns:
+        dict: { object_name: { "volume": float, "unit": str } }
+    """
+    scene = bpy.context.scene
+    unit_settings = scene.unit_settings
+    depsgraph = bpy.context.evaluated_depsgraph_get()
+
+    # Same idea as the 3D Print Toolbox: scale_length is a linear scale;
+    # volume scales with scale_length^3.
+    if unit_settings.system == 'NONE':
+        scale = 1.0
+    else:
+        scale = unit_settings.scale_length
+
+    volumes = {}
+
+    for obj in mesh_objects:
+        if obj.type != 'MESH':
+            continue
+
+        raw_volume = _calc_volume_world(obj, depsgraph=depsgraph)
+
+        if unit_settings.system == 'METRIC':
+            # Convert from m³ to cm³ (1 cm = 0.01 m)
+            volume_value = (raw_volume * (scale ** 3.0)) / (0.01 ** 3.0)
+            unit_str = "cm³"
+        elif unit_settings.system == 'IMPERIAL':
+            # Convert from m³ to in³ (1 in = 0.0254 m)
+            volume_value = (raw_volume * (scale ** 3.0)) / (0.0254 ** 3.0)
+            unit_str = "in³"
+        else:
+            # No unit system: report Blender units³
+            volume_value = raw_volume
+            unit_str = "BU³"
+
+        volumes[obj.name] = {
+            "volume": float(volume_value),
+            "unit": unit_str,
+        }
+
+    return volumes
+
+#Count of cysts number
+def count_cysts_from_object(source_obj_name="Cyst", merge_distance=None):
+    """
+    Workflow (DESTRUCTIVE on source_obj):
+      1. Apply transforms on source_obj
+      2. Merge by Distance
+      3. (optional) Make Manifold (3D Print Toolbox)
+      4. Separate by Loose Parts
+      5. Count Cyst.xxx objects
+
+    Returns:
+        (cyst_count, cyst_names)
+    """
+    scene = bpy.context.scene
+
+    # 0) find source object
+    source_obj = scene.objects.get(source_obj_name)
+    if source_obj is None:
+        print(f"[count_cysts_from_object] No object named '{source_obj_name}' in scene.")
+        return 0, []
+
+    if source_obj.type != 'MESH':
+        print(f"[count_cysts_from_object] Object '{source_obj_name}' is not a mesh. Type: {source_obj.type}")
+        return 0, []
+
+    if merge_distance is None:
+        merge_distance = getattr(config, "MERGE_DISTANCE", 0.0)
+
+    print(f"\n--- Cyst Pipeline on object '{source_obj_name}' (DESTRUCTIVE) ---")
+    print(f"  Merge by Distance with distance: {merge_distance}")
+
+    # 1) ensure OBJECT mode, clean selection
+    try:
+        bpy.ops.object.mode_set(mode='OBJECT')
+    except Exception:
+        pass
+
+    bpy.ops.object.select_all(action='DESELECT')
+    source_obj.select_set(True)
+    bpy.context.view_layer.objects.active = source_obj
+
+    # 2) apply transforms so separation behaves nicely
+    bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
+
+    # 3) Merge by Distance on the source
+    merge_vertices_by_distance([source_obj], merge_distance)
+
+    # 4) snapshot objects before separation
+    objects_before = set(scene.objects)
+
+    bpy.ops.object.select_all(action='DESELECT')
+    source_obj.select_set(True)
+    bpy.context.view_layer.objects.active = source_obj
+
+    bpy.ops.object.mode_set(mode='EDIT')
+    bpy.ops.mesh.select_all(action='SELECT')
+
+    # 5) optional: Make Manifold
+    try:
+        bpy.ops.mesh.print3d_clean_non_manifold()
+        print("  Executed 'Make Manifold' (print3d_clean_non_manifold).")
+    except Exception as e:
+        print(f"  WARNING: could not execute 'print3d_clean_non_manifold': {e}")
+
+    # 6) Separate by Loose Parts
+    bpy.ops.mesh.separate(type='LOOSE')
+    bpy.ops.object.mode_set(mode='OBJECT')
+
+    # 7) collect new objects created by separation
+    objects_after = set(scene.objects)
+    new_objects = list(objects_after - objects_before)
+    print(f"  New objects created: {[obj.name for obj in new_objects]}")
+
+    # === Conta tutte le cisti presenti in scena ===
+    # Criterio: nome che inizia per "Cyst" ma NON "Cyst_mat_projector"
+    cyst_objs = [
+        obj for obj in scene.objects
+        if obj.type == 'MESH'
+        and obj.name.startswith(source_obj_name)        # "Cyst", "Cyst.001", ...
+        and obj.name != f"{source_obj_name}_mat_projector"
+    ]
+
+    if not cyst_objs:
+        print("  Nessun oggetto Cyst trovato dopo la separazione.")
+        return 0, []
+
+    cyst_count = len(cyst_objs)
+    cyst_names = [obj.name for obj in cyst_objs]
+
+    print(f"  Cisti individuate: {cyst_names}")
+    print(f"  Totale cisti: {cyst_count}")
+
+    return cyst_count, cyst_names
+
+
+def prune_small_cysts(base_name="Cyst", min_faces=5):
+    """
+    Rimuove tutti gli oggetti mesh che rappresentano cisti:
+      - nome che inizia per 'Cyst' (es. 'Cyst', 'Cyst.001', ...)
+      - esclude 'Cyst_mat_projector'
+
+    Se una cisti ha meno di `min_faces` facce, viene rimossa.
+
+    Ritorna:
+        (remaining_count, remaining_names)
+        -> numero e nomi delle cisti rimanenti (Cyst, Cyst.xxx)
+    """
+    scene = bpy.context.scene
+
+    cyst_parts = [
+        obj for obj in scene.objects
+        if obj.type == 'MESH'
+        and obj.name.startswith(base_name)                # "Cyst", "Cyst.001", ...
+        and obj.name != f"{base_name}_mat_projector"      # exclude helper
+    ]
+
+    if not cyst_parts:
+        print(f"[prune_small_cysts] Nessun oggetto che inizia per '{base_name}' trovato (escluso projector).")
+        return 0, []
+
+    print(f"[prune_small_cysts] Trovati {len(cyst_parts)} oggetti cisti (incl. 'Cyst'): {[o.name for o in cyst_parts]}")
+
+    small_cysts = []
+    kept_cysts = []
+
+    for obj in cyst_parts:
+        face_count = len(obj.data.polygons)
+        print(f"  '{obj.name}': {face_count} facce")
+
+        if face_count < min_faces:
+            small_cysts.append(obj)
+        else:
+            kept_cysts.append(obj)
+
+    for obj in small_cysts:
+        print(f"  Rimuovo '{obj.name}' perché ha meno di {min_faces} facce.")
+        bpy.data.objects.remove(obj, do_unlink=True)
+
+    remaining = [
+        obj for obj in scene.objects
+        if obj.type == 'MESH'
+        and obj.name.startswith(base_name)
+        and obj.name != f"{base_name}_mat_projector"
+    ]
+    remaining_names = [obj.name for obj in remaining]
+
+    print(f"[prune_small_cysts] Rimangono {len(remaining)} cisti: {remaining_names}")
+
+    return len(remaining), remaining_names
+
+# -----------------------------
+# Count of tumors number
+# -----------------------------
+def count_tumors_from_object(source_obj_name="Tumor", merge_distance=None):
+    """
+    Workflow (DESTRUCTIVE on source_obj):
+      1. Apply transforms on source_obj
+      2. Merge by Distance
+      3. (optional) Make Manifold (3D Print Toolbox)
+      4. Separate by Loose Parts
+      5. Count Tumor / Tumor.xxx objects
+
+    Returns:
+        (tumor_count, tumor_names)
+    """
+    scene = bpy.context.scene
+
+    # 0) find source object
+    source_obj = scene.objects.get(source_obj_name)
+    if source_obj is None:
+        print(f"[count_tumors_from_object] No object named '{source_obj_name}' in scene.")
+        return 0, []
+
+    if source_obj.type != 'MESH':
+        print(f"[count_tumors_from_object] Object '{source_obj_name}' is not a mesh. Type: {source_obj.type}")
+        return 0, []
+
+    if merge_distance is None:
+        merge_distance = getattr(config, "MERGE_DISTANCE", 0.0)
+
+    print(f"\n--- Tumor Pipeline on object '{source_obj_name}' (DESTRUCTIVE) ---")
+    print(f"  Merge by Distance with distance: {merge_distance}")
+
+    # 1) ensure OBJECT mode, clean selection
+    try:
+        bpy.ops.object.mode_set(mode='OBJECT')
+    except Exception:
+        pass
+
+    bpy.ops.object.select_all(action='DESELECT')
+    source_obj.select_set(True)
+    bpy.context.view_layer.objects.active = source_obj
+
+    # 2) apply transforms so separation behaves nicely
+    bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
+
+    # 3) Merge by Distance on the source
+    merge_vertices_by_distance([source_obj], merge_distance)
+
+    # 4) snapshot objects before separation
+    objects_before = set(scene.objects)
+
+    bpy.ops.object.select_all(action='DESELECT')
+    source_obj.select_set(True)
+    bpy.context.view_layer.objects.active = source_obj
+
+    bpy.ops.object.mode_set(mode='EDIT')
+    bpy.ops.mesh.select_all(action='SELECT')
+
+    # 5) optional: Make Manifold
+    try:
+        bpy.ops.mesh.print3d_clean_non_manifold()
+        print("  Executed 'Make Manifold' (print3d_clean_non_manifold).")
+    except Exception as e:
+        print(f"  WARNING: could not execute 'print3d_clean_non_manifold': {e}")
+
+    # 6) Separate by Loose Parts
+    bpy.ops.mesh.separate(type='LOOSE')
+    bpy.ops.object.mode_set(mode='OBJECT')
+
+    # 7) collect new objects created by separation (for debug)
+    objects_after = set(scene.objects)
+    new_objects = list(objects_after - objects_before)
+    print(f"  New objects created: {[obj.name for obj in new_objects]}")
+
+    # === Count all tumors present in scene ===
+    # Criterion: name starts with "Tumor" but is NOT "Tumor_mat_projector"
+    tumor_objs = [
+        obj for obj in scene.objects
+        if obj.type == 'MESH'
+        and obj.name.startswith(source_obj_name)              # "Tumor", "Tumor.001", ...
+        and obj.name != f"{source_obj_name}_mat_projector"    # exclude helper
+    ]
+
+    if not tumor_objs:
+        print("  Nessun oggetto Tumor trovato dopo la separazione.")
+        return 0, []
+
+    tumor_count = len(tumor_objs)
+    tumor_names = [obj.name for obj in tumor_objs]
+
+    print(f"  Tumori individuati: {tumor_names}")
+    print(f"  Totale tumori: {tumor_count}")
+
+    return tumor_count, tumor_names
+
+
+def prune_small_tumors(base_name="Tumor", min_faces=5):
+    """
+    Rimuove tutti gli oggetti mesh che rappresentano tumori:
+      - nome che inizia per 'Tumor' (es. 'Tumor', 'Tumor.001', ...)
+      - esclude 'Tumor_mat_projector'
+
+    Se un tumore ha meno di `min_faces` facce, viene rimosso.
+
+    Ritorna:
+        (remaining_count, remaining_names)
+        -> numero e nomi dei tumori rimanenti (Tumor, Tumor.xxx)
+    """
+    scene = bpy.context.scene
+
+    tumor_objs = [
+        obj for obj in scene.objects
+        if obj.type == 'MESH'
+        and obj.name.startswith(base_name)          # "Tumor", "Tumor.001", ...
+        and "mat_projector" not in obj.name       # exclude ANY projector
+    ]
+
+    if not tumor_objs:
+        print(f"[prune_small_tumors] Nessun oggetto che inizia per '{base_name}' trovato (escluso projector).")
+        return 0, []
+
+    print(f"[prune_small_tumors] Trovati {len(tumor_objs)} oggetti tumore (incl. 'Tumor'): {[o.name for o in tumor_objs]}")
+
+    small_tumors = []
+    kept_tumors = []
+
+    for obj in tumor_objs:
+        face_count = len(obj.data.polygons)
+        print(f"  '{obj.name}': {face_count} facce")
+
+        if face_count < min_faces:
+            small_tumors.append(obj)
+        else:
+            kept_tumors.append(obj)
+
+    for obj in small_tumors:
+        print(f"  Rimuovo '{obj.name}' perché ha meno di {min_faces} facce.")
+        bpy.data.objects.remove(obj, do_unlink=True)
+
+    remaining = [
+    obj for obj in scene.objects
+    if obj.type == 'MESH'
+    and obj.name.startswith(base_name)
+    and "mat_projector" not in obj.name 
+    ]
+    remaining_names = [obj.name for obj in remaining]
+
+    print(f"[prune_small_tumors] Rimangono {len(remaining)} tumori: {remaining_names}")
+
+    return len(remaining), remaining_names

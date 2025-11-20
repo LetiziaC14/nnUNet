@@ -9,8 +9,8 @@ import nibabel as nib
 import numpy as np
 import pyvista as pv
 from skimage.measure import marching_cubes
-import Blender_pipeline.config as config
-import Blender_pipeline.utils as utils
+import config
+import utils
 import SimpleITK as sitk
 import csv
 

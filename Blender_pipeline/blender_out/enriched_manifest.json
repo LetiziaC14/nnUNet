@@ -1,24 +1,4 @@
 {
-    "Background": {
-        "id": 0,
-        "snomed_details": {
-            "category": null,
-            "type": null,
-            "type_modifier": null,
-            "region": null,
-            "type_code": null
-        },
-        "custom_parameters": {
-            "display_name": "Background",
-            "export_as_individual_mesh": null,
-            "biological_category": "Other",
-            "shader_ref": "default_shader",
-            "blend_file": "default.blend",
-            "blend_material": "default_mat",
-            "color_override": null,
-            "export": true
-        }
-    },
     "Kidney": {
         "id": 1,
         "snomed_details": {
@@ -39,28 +19,8 @@
             "export": true
         }
     },
-    "Tumor": {
-        "id": 2,
-        "snomed_details": {
-            "category": null,
-            "type": null,
-            "type_modifier": null,
-            "region": null,
-            "type_code": null
-        },
-        "custom_parameters": {
-            "display_name": "Tumor",
-            "export_as_individual_mesh": null,
-            "biological_category": "Other",
-            "shader_ref": "tumor_1_shader",
-            "blend_file": "tumor_1.blend",
-            "blend_material": "tumor_1_mat",
-            "color_override": null,
-            "export": true
-        }
-    },
     "Cyst": {
-        "id": 3,
+        "id": 2,
         "snomed_details": {
             "category": null,
             "type": null,
@@ -75,6 +35,26 @@
             "shader_ref": "cyst_shader",
             "blend_file": "cyst.blend",
             "blend_material": "cyst_mat",
+            "color_override": null,
+            "export": true
+        }
+    },
+    "Tumor": {
+        "id": 3,
+        "snomed_details": {
+            "category": null,
+            "type": null,
+            "type_modifier": null,
+            "region": null,
+            "type_code": null
+        },
+        "custom_parameters": {
+            "display_name": "Tumor",
+            "export_as_individual_mesh": null,
+            "biological_category": "Other",
+            "shader_ref": "tumor_1_shader",
+            "blend_file": "tumor_1.blend",
+            "blend_material": "tumor_1_mat",
             "color_override": null,
             "export": true
         }

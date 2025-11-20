@@ -4,11 +4,11 @@ import sys
 import os
 
 try:
-    import Blender_pipeline.config as config
+    import config
     print("DEBUG: config importato.")
     import segmentator_ops
     print("DEBUG: segmentator_ops importato.")
-    import Blender_pipeline.utils as utils
+    import utils
     print("DEBUG: utils importato.")
 except ImportError as e:
     print(f"ERRORE CRITICO: Impossibile importare i moduli necessari. Assicurati che tutte le dipendenze siano installate (pip install -r requirements.txt). Dettagli: {e}")
@@ -35,10 +35,9 @@ def execute_segmentator_pipeline():
             print(f"\nDEBUG: File NIfTI segmentato disponibile in: {segmented_nii_path}")
             print(f"DEBUG: Caricamento della Class Map")
             segment_id_to_name_map = {
-                0: "Background",
                 1: "Kidney",
-                2: "Tumor",
-                3: "Cyst"
+                2: "Cyst",
+                3: "Tumor"
             }
             print(f"DEBUG: Class Map (Segment ID to Name Table) caricata: {len(segment_id_to_name_map)} entries.")
 
@@ -60,19 +59,19 @@ def execute_segmentator_pipeline():
                 "region": "Kidney",
                 "type_code": "64033007",   # example SNOMED code
             },
-            "kidney_tumor": {
-                "category": "Pathological structure",
-                "type": "Neoplasm",
-                "type_modifier": None,
-                "region": "Kidney",
-                "type_code": "108369006",
-            },
             "kidney_other_mass": {
                 "category": "Pathological structure",
                 "type": "Cyst",
                 "type_modifier": None,
                 "region": "Kidney",
                 "type_code": "312850006",
+            },
+            "kidney_tumor": {
+                "category": "Pathological structure",
+                "type": "Neoplasm",
+                "type_modifier": None,
+                "region": "Kidney",
+                "type_code": "108369006",
             },
             }
 
